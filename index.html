@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#123c34">
+  <title>まなべるオセロ | 5段階CPU・ひと目でわかる学習モード</title>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; min-height: 100dvh; padding: 26px 14px 40px; background: radial-gradient(circle at 50% 0%, #e3f1e8, #f7f7f1 65%); color: #20332b; }
+    .app { max-width: 650px; margin: auto; }
+    header { text-align: center; margin-bottom: 19px; }
+    .eyebrow { margin: 0 0 7px; color: #537468; font-size: 11px; font-weight: 800; letter-spacing: .15em; }
+    h1 { margin: 0; font-size: clamp(28px, 7vw, 39px); letter-spacing: .06em; }
+    .subtitle { margin: 7px 0 0; color: #5b7465; font-size: 13px; }
+    .panel { background: #fff; border: 1px solid #e0e9e1; border-radius: 21px; padding: 19px; box-shadow: 0 10px 38px #20493615; }
+    .settings { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 13px; }
+    .setting { display: grid; gap: 5px; }
+    .setting label { font-size: 12px; color: #4b6b5a; font-weight: 750; }
+    select { width: 100%; min-width: 0; border: 1px solid #ccdbd0; border-radius: 11px; font: inherit; font-size: 13px; font-weight: 750; padding: 11px 8px; background: #f8fbf9; color: #1b4533; }
+    select:disabled { opacity: .45; }
+    .learning-switch { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px; border-radius: 12px; background: #f3f7f4; margin-bottom: 13px; cursor: pointer; }
+    .learning-switch strong { display: block; font-size: 14px; }
+    .learning-switch small { display: block; color: #597667; font-size: 11px; line-height: 1.5; margin-top: 3px; }
+    .learning-switch input { appearance: none; -webkit-appearance: none; width: 49px; height: 28px; border-radius: 99px; background: #b8c8bf; position: relative; transition: background .18s; flex: 0 0 auto; margin: 0; cursor: pointer; }
+    .learning-switch input::before { content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0003; transition: transform .18s; }
+    .learning-switch input:checked { background: #247850; }
+    .learning-switch input:checked::before { transform: translateX(21px); }
+    .learning-switch input:focus-visible { outline: 3px solid #b58a14; outline-offset: 3px; }
+    .scores { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 9px; }
+    .score { border: 2px solid #ebf1ec; border-radius: 12px; padding: 10px 11px; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+    .score.active { background: #f0f8f1; border-color: #7fa68d; }
+    .score-name { display: flex; gap: 6px; align-items: center; font-size: 12px; font-weight: 750; }
+    .score strong { font-size: 26px; font-variant-numeric: tabular-nums; }
+    .mini-disc { width: 19px; height: 19px; border-radius: 50%; display: inline-block; flex: none; box-shadow: 0 1px 3px #0004; }
+    .mini-disc.black { background: radial-gradient(circle at 30% 20%, #55615d, #0c1312); }
+    .mini-disc.white { background: radial-gradient(circle at 30% 20%, #fff, #d5dfd8); border: 1px solid #d5dfd8; }
+    .message { text-align: center; min-height: 52px; display: grid; place-items: center; color: #285c41; font-size: 13px; font-weight: 750; line-height: 1.5; padding: 8px; }
+    .axis-top { display: grid; grid-template-columns: repeat(8, minmax(0,1fr)); padding-left: 22px; padding-right: 5px; margin: 0 0 4px; text-align: center; color: #658071; font-size: 11px; font-weight: 750; }
+    .board-line { display: flex; gap: 4px; align-items: stretch; }
+    .axis-side { display: grid; grid-template-rows: repeat(8, 1fr); width: 18px; flex: none; text-align: center; font-size: 11px; font-weight: 750; color: #658071; }
+    .axis-side span { display: flex; align-items: center; justify-content: center; }
+    .board-border { flex: 1; min-width: 0; background: #174e3f; border: 5px solid #174e3f; border-radius: 10px; box-shadow: 0 8px 18px #133f312a; }
+    .board { width: 100%; aspect-ratio: 1; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 2px; background: #124b38; }
+    .cell { min-width: 0; min-height: 0; border: 0; padding: 0; margin: 0; border-radius: 1px; position: relative; background: #348665; display: grid; place-items: center; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+    .cell.can-place { cursor: pointer; }
+    .cell.can-place:hover, .cell.can-place:focus-visible { background: #48a17d; }
+    .cell.can-place:not(.has-hint)::after { content: ''; width: 23%; height: 23%; border-radius: 50%; background: #c4e8c7a6; }
+    .cell.recommended::before { content: ''; position: absolute; inset: 2px; border: 3px solid #f7d16d; border-radius: 3px; pointer-events: none; z-index: 1; }
+    .hint-mark { position: absolute; z-index: 2; color: #fff; font-size: clamp(13px, 4vw, 23px); line-height: 1; font-weight: 900; border-radius: 50%; width: 67%; height: 67%; display: grid; place-items: center; pointer-events: none; box-shadow: 0 1px 4px #0004; }
+    .hint-mark.grade-best { background: #f7d16d; color: #453501; }
+    .hint-mark.grade-good { background: #e3f3ff; color: #1d567b; }
+    .hint-mark.grade-okay { background: #edf0ed; color: #48594e; }
+    .hint-mark.grade-bad { background: #fce2de; color: #a83d36; }
+    .cell:focus-visible { outline: 3px solid #ffce70; outline-offset: -3px; z-index: 3; }
+    .disc { width: 79%; height: 79%; border-radius: 50%; box-shadow: 0 2px 4px #0004; }
+    .disc.black { background: radial-gradient(circle at 30% 24%, #535e5b, #1c2725 54%, #0d1514 90%); }
+    .disc.white { background: radial-gradient(circle at 30% 22%, #fff, #f7f9f6 58%, #d3ddd5); border: 1px solid #e4eae4; }
+    .disc.new { animation: appear .24s ease-out; }
+    .disc.flipped { animation: flip .3s ease-in-out; }
+    @keyframes appear { from { transform: scale(.3); opacity: .3 } to { transform: scale(1); opacity: 1 } }
+    @keyframes flip { 0% { transform: scaleX(1) } 45% { transform: scaleX(.08) } 100% { transform: scaleX(1) } }
+    .coach { margin-top: 12px; border: 1px solid #e8d69c; border-radius: 13px; padding: 12px; background: #fffaf0; line-height: 1.5; }
+    .coach[hidden] { display: none; }
+    .coach-head { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .coach-head strong { color: #765614; font-size: 16px; }
+    .coach-head span { color: #896928; font-size: 11px; }
+    .coach p { margin: 4px 0; color: #4c473c; font-size: 13px; }
+    .coach .key { margin: 9px 0 0; padding-top: 8px; border-top: 1px solid #ebddbc; color: #736449; font-size: 12px; font-weight: 700; }
+    .coach .key span { white-space: nowrap; margin-right: 7px; }
+    .actions { display: flex; gap: 10px; margin-top: 17px; }
+    .action { min-height: 45px; flex: 1; border-radius: 11px; border: 1px solid #b8d0c0; background: #fff; color: #295b43; font: inherit; font-weight: 750; font-size: 13px; cursor: pointer; touch-action: manipulation; }
+    .action.primary { border-color: #1f684b; background: #1f684b; color: #fff; }
+    .action:disabled { opacity: .45; cursor: not-allowed; }
+    .help { color: #607768; font-size: 12px; line-height: 1.8; margin: 16px 0 0; }
+    .foot { text-align: center; font-size: 11px; color: #71877a; margin-top: 17px; line-height: 1.6; }
+    @media (max-width: 420px) { body { padding: 15px 9px 25px; } .panel { padding: 11px; border-radius: 16px; } .score { padding: 8px; } .score strong { font-size: 22px; } .score-name { font-size: 11px; } .settings { gap: 8px; } .axis-top { padding-left: 22px; } .board { gap: 1px; } .board-border { border-width: 4px; } .cell.recommended::before { border-width: 2px; } }
+    @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation: none !important; transition: none !important; } }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header><p class="eyebrow">PLAY & LEARN</p><h1>まなべるオセロ</h1><p class="subtitle">打ちながら、オセロの基本を覚えよう。</p></header>
+    <section class="panel" aria-label="オセロのゲーム">
+      <div class="settings">
+        <div class="setting"><label for="mode">対戦モード</label><select id="mode"><option value="cpu">CPUと対戦</option><option value="friend">2人で対戦</option></select></div>
+        <div class="setting"><label for="level">CPUの強さ</label><select id="level"><option value="1">1 — はじめて</option><option value="2">2 — やさしい</option><option value="3" selected>3 — ふつう</option><option value="4">4 — むずかしい</option><option value="5">5 — とても強い</option></select></div>
+      </div>
+      <label class="learning-switch" for="study"><span><strong>学習モード <span id="study-status">OFF</span></strong><small>ONで置けるマスを ◎ ○ △ × で採点</small></span><input id="study" type="checkbox" role="switch" aria-label="学習モードを切り替える"></label>
+      <div class="scores"><div class="score active" id="black-score"><span class="score-name"><span class="mini-disc black" aria-hidden="true"></span>黒（先手）</span><strong id="black-count">2</strong></div><div class="score" id="white-score"><span class="score-name"><span class="mini-disc white" aria-hidden="true"></span><span id="white-label">白（CPU）</span></span><strong id="white-count">2</strong></div></div>
+      <div class="message" id="message" aria-live="polite">黒の番です。光るマスを選んでください。</div>
+      <div class="axis-top" aria-hidden="true"><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span></div>
+      <div class="board-line"><div class="axis-side" aria-hidden="true"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span></div><div class="board-border"><div id="board" class="board" role="grid" aria-label="オセロの8かける8の盤面"></div></div></div>
+      <aside id="coach" class="coach" aria-label="学習モードの解説" hidden><div class="coach-head"><strong id="coach-title">◎ おすすめ</strong><span>◎が今の最有力候補</span></div><p id="coach-detail"></p><p class="key"><span>◎ 最有力</span><span>○ よい</span><span>△ 注意</span><span>× 避けたい</span></p></aside>
+      <div class="actions"><button type="button" id="new-game" class="action primary">最初から</button><button type="button" id="undo" class="action" disabled>1手戻す</button></div>
+      <p class="help">● 光るマスをタップすると石を置けます。<br>● 縦・横・斜めに相手の石をはさむとひっくり返ります。<br>● 置けるマスがなければ自動的にパスします。<br>● CPUの強さと学習モードは対局中でも変更できます。</p>
+    </section>
+    <p class="foot">1つのHTMLファイルだけで動作します。通信不要。<br>記号は「今置ける手の中での比較」です。◎でも必勝とは限りません。</p>
+  </main>
+  <script>
+    'use strict';
+    const N = 8, BLACK = 1, WHITE = -1, EMPTY = 0;
+    const DIRS = [-1,0,1].flatMap(dr => [-1,0,1].filter(dc => dr || dc).map(dc => [dr,dc]));
+    const CORNERS = [[0,0],[0,7],[7,0],[7,7]];
+    const boardEl = document.getElementById('board');
+    const modeEl = document.getElementById('mode');
+    const levelEl = document.getElementById('level');
+    const studyEl = document.getElementById('study');
+    const messageEl = document.getElementById('message');
+    const undoEl = document.getElementById('undo');
+    const coachEl = document.getElementById('coach');
+    let board, turn, gameOver, history, cpuTimer = null, highlight = null;
+
+    function copy(b) { return b.map(row => row.slice()); }
+    function inside(r,c) { return r >= 0 && r < N && c >= 0 && c < N; }
+    function colorName(color) { return color === BLACK ? '黒' : '白'; }
+    function coord(move) { return 'ABCDEFGH'[move.c] + (move.r + 1); }
+    function isCorner(r,c) { return (r === 0 || r === 7) && (c === 0 || c === 7); }
+    function isEdge(r,c) { return r === 0 || r === 7 || c === 0 || c === 7; }
+    function flipsFor(b,r,c,color) {
+      if (b[r][c] !== EMPTY) return [];
+      const all = [];
+      for (const [dr,dc] of DIRS) {
+        let y = r+dr, x = c+dc;
+        if (!inside(y,x) || b[y][x] !== -color) continue;
+        const line = [];
+        while (inside(y,x) && b[y][x] === -color) { line.push([y,x]); y += dr; x += dc; }
+        if (line.length && inside(y,x) && b[y][x] === color) all.push(...line);
+      }
+      return all;
+    }
+    function legalMoves(b,color) {
+      const moves = [];
+      for (let r=0;r<N;r++) for (let c=0;c<N;c++) {
+        if (b[r][c] !== EMPTY) continue;
+        const flips = flipsFor(b,r,c,color);
+        if (flips.length) moves.push({r,c,flips});
+      }
+      return moves;
+    }
+    function place(b,move,color) {
+      b[move.r][move.c] = color;
+      for (const [r,c] of move.flips) b[r][c] = color;
+    }
+    function counts(b) {
+      let black = 0, white = 0;
+      for (const row of b) for (const cell of row) {
+        if (cell === BLACK) black++;
+        else if (cell === WHITE) white++;
+      }
+      return {black,white};
+    }
+    function clearCpu() { if (cpuTimer != null) clearTimeout(cpuTimer); cpuTimer = null; }
+    function isCpuTurn() { return modeEl.value === 'cpu' && turn === WHITE; }
+
+    // 評価の基本：角の確保、角の隣の危険、相手の合法手、辺、終盤の石数。
+    // 序盤の「たくさん返せば有利」という誤解を避けるため、石数は序盤に重視しすぎない。
+    function evaluate(b,color) {
+      const {black,white} = counts(b);
+      const empty = 64-black-white;
+      const myDiscs = color === BLACK ? black : white;
+      const oppDiscs = color === BLACK ? white : black;
+      let score = (myDiscs - oppDiscs) * (empty <= 12 ? 9 : empty <= 22 ? 2 : 0.25);
+      for (const [r,c] of CORNERS) {
+        const v = b[r][c];
+        if (v) score += v === color ? 135 : -135;
+        else {
+          const innerR = r === 0 ? 1 : 6, innerC = c === 0 ? 1 : 6;
+          const risk = [[innerR,innerC,60],[r,innerC,28],[innerR,c,28]];
+          for (const [y,x,w] of risk) {
+            if (b[y][x]) score += b[y][x] === color ? -w : w;
+          }
+        }
+      }
+      for (let r=0;r<8;r++) for (let c=0;c<8;c++) {
+        const v=b[r][c]; if (!v) continue;
+        if (isEdge(r,c) && !isCorner(r,c)) score += v === color ? 7 : -7;
+        let frontier=false;
+        for (const [dr,dc] of DIRS) {
+          if (inside(r+dr,c+dc) && !b[r+dr][c+dc]) {frontier=true;break;}
+        }
+        if (frontier && empty > 12) score += v === color ? -2.3 : 2.3;
+      }
+      const myMoves = legalMoves(b,color).length;
+      const oppMoves = legalMoves(b,-color).length;
+      score += 8 * (myMoves - oppMoves);
+      return score;
+    }
+    function positionalOrder(b,m) {
+      let score = m.flips.length;
+      if (isCorner(m.r,m.c)) score += 500;
+      else if (isEdge(m.r,m.c)) score += 35;
+      for (const [r,c] of CORNERS) {
+        if (!b[r][c] && Math.abs(m.r-r) <= 1 && Math.abs(m.c-c) <= 1) score -= 100;
+      }
+      return score;
+    }
+    function orderedMoves(b,color) {
+      return legalMoves(b,color).sort((a,z)=>positionalOrder(b,z)-positionalOrder(b,a));
+    }
+    // negamax + αβ枝刈り。パスは深さを消費しない。
+    function search(b,color,depth,alpha,beta) {
+      const moves = orderedMoves(b,color);
+      if (!moves.length) {
+        if (!legalMoves(b,-color).length) {
+          const {black,white} = counts(b);
+          const diff = color === BLACK ? black-white : white-black;
+          return diff * 10000;
+        }
+        return -search(b,-color,depth,-beta,-alpha);
+      }
+      if (depth <= 0) return evaluate(b,color);
+      let best = -Infinity;
+      for (const m of moves) {
+        const b2 = copy(b); place(b2,m,color);
+        const value = -search(b2,-color,depth-1,-beta,-alpha);
+        best = Math.max(best,value); alpha = Math.max(alpha,best);
+        if (alpha >= beta) break;
+      }
+      return best;
+    }
+    // 全候補を公平に採点するため、各候補で完全な探索窓を使う。
+    // 以前は前の候補のαを流用して途中打ち切り値を点数扱いしていた。
+    function scoreMoves(b,color,depth) {
+      const ranked = [];
+      for (const move of orderedMoves(b,color)) {
+        const next = copy(b); place(next,move,color);
+        const score = depth <= 1 ? evaluate(next,color)
+          : -search(next,-color,depth-1,-Infinity,Infinity);
+        ranked.push({move,score});
+      }
+      ranked.sort((a,z)=>z.score-a.score);
+      return ranked;
+    }
+    function emptyCount(b) {
+      const {black,white}=counts(b);
+      return 64-black-white;
+    }
+    // 学習側はCPUより深く読む。最強CPU相手なら6手先、残り8マス以下は終局まで。
+    function adviceDepth(b) {
+      const left=emptyCount(b);
+      return left <= 8 ? left : (modeEl.value === 'cpu' && Number(levelEl.value) === 5 ? 6 : 5);
+    }
+    function cpuChoice(moves) {
+      const level = Number(levelEl.value);
+      if (level === 1) return moves[Math.floor(Math.random()*moves.length)];
+      if (level === 2) return moves.slice().sort((a,b)=>b.flips.length-a.flips.length+(Math.random()-.5)*.15)[0];
+      if (level === 3) return scoreMoves(board,WHITE,1)[0].move;
+      if (level === 4) return scoreMoves(board,WHITE,2)[0].move;
+      const left=emptyCount(board);
+      return scoreMoves(board,WHITE,left <= 8 ? left : left <= 16 ? 4 : 3)[0].move;
+    }
+    function gradeMoves(ranked, endScores) {
+      if (!ranked.length) return [];
+      const top = ranked[0].score;
+      return ranked.map(({move,score})=>{
+        // 全探索による終局スコアは石差×10000。小さな評価値と尺度を揃える。
+        const diff=(top-score)/(endScores?10000:1);
+        const grade=diff < (endScores?2:4) ? '◎'
+          : diff < (endScores?6:18) ? '○'
+          : diff < (endScores?12:45) ? '△' : '×';
+        return {move,score,grade};
+      });
+    }
+    // 短い説明を局面から作る。「辺＝安全」などの断定は避ける。
+    function briefReason(ranked) {
+      const chosen=ranked[0].move;
+      if (isCorner(chosen.r,chosen.c)) return '角は取られ返されません。';
+      const after = copy(board); place(after,chosen,turn);
+      const oppMoves=legalMoves(after,-turn);
+      const oppCorners=oppMoves.filter(m=>isCorner(m.r,m.c)).length;
+      if (!oppCorners && ranked.slice(1).some(({move})=>{
+        const alt=copy(board);place(alt,move,turn);
+        return legalMoves(alt,-turn).some(m=>isCorner(m.r,m.c));
+      })) return '相手に角を渡しにくい手です。';
+      if (oppCorners) return '次に角を取られる可能性があります。';
+      if (emptyCount(board)<=8) return '最後の石数まで読んで選びました。';
+      if (isEdge(chosen.r,chosen.c)) return '辺を使う手です。角との関係も見ましょう。';
+      const alternatives=ranked.slice(1).map(({move})=>{
+        const b=copy(board);place(b,move,turn);
+        return legalMoves(b,-turn).length;
+      });
+      if (alternatives.length && oppMoves.length<Math.min(...alternatives)) return '相手の次の選択肢を減らせます。';
+      if (ranked.length>1 && ranked[1].score===ranked[0].score) return '同じくらいよい手がほかにもあります。';
+      return '相手の返し方まで考えた手です。';
+    }
+    function studySuggestion() {
+      if (!studyEl.checked || gameOver || isCpuTurn()) return null;
+      const ranked = gradeMoves(scoreMoves(board,turn,adviceDepth(board)),emptyCount(board)<=8);
+      if (!ranked.length) return null;
+      return {ranked, move:ranked[0].move, explanation:briefReason(ranked)};
+    }
+
+    function render() {
+      const human = !gameOver && !isCpuTurn();
+      const legal = human ? legalMoves(board,turn) : [];
+      const movable = new Set(legal.map(m=>m.r*8+m.c));
+      const advice = studySuggestion();
+      const grades = new Map(advice ? advice.ranked.map(v=>[v.move.r*8+v.move.c,v.grade]) : []);
+      boardEl.replaceChildren();
+      for (let r=0;r<N;r++) for (let c=0;c<N;c++) {
+        const cell = document.createElement('button');
+        cell.type='button';cell.className='cell';cell.setAttribute('role','gridcell');
+        const key=r*8+c, can=movable.has(key);
+        cell.disabled=!can;
+        if (can) cell.classList.add('can-place');
+        const grade=grades.get(key);
+        const recommended=grade==='◎';
+        if (grade) cell.classList.add('has-hint');
+        if (recommended) cell.classList.add('recommended');
+        const state = board[r][c]===BLACK?'黒の石':board[r][c]===WHITE?'白の石':'空き';
+        cell.setAttribute('aria-label',`${'ABCDEFGH'[c]}${r+1}、${state}${can?'、置けます':''}${grade?'、評価'+grade:''}`);
+        if (board[r][c]) {
+          const disc=document.createElement('span');
+          disc.className='disc '+(board[r][c]===BLACK?'black':'white');
+          if (highlight?.placed===key) disc.classList.add('new');
+          else if (highlight?.flipped?.has(key)) disc.classList.add('flipped');
+          disc.setAttribute('aria-hidden','true');cell.append(disc);
+        } else if (grade) {
+          const mark=document.createElement('span');
+          mark.className='hint-mark '+({'◎':'grade-best','○':'grade-good','△':'grade-okay','×':'grade-bad'}[grade]);
+          mark.textContent=grade;mark.setAttribute('aria-hidden','true');cell.append(mark);
+        }
+        cell.addEventListener('click',()=>humanMove(r,c));
+        boardEl.append(cell);
+      }
+      const {black,white}=counts(board);
+      document.getElementById('black-count').textContent=black;
+      document.getElementById('white-count').textContent=white;
+      document.getElementById('white-label').textContent=modeEl.value==='cpu'?'白（CPU）':'白（後手）';
+      document.getElementById('black-score').classList.toggle('active',!gameOver&&turn===BLACK);
+      document.getElementById('white-score').classList.toggle('active',!gameOver&&turn===WHITE);
+      document.getElementById('study-status').textContent=studyEl.checked?'ON':'OFF';
+      levelEl.disabled=modeEl.value!=='cpu';
+      undoEl.disabled=history.length===0;
+      coachEl.hidden=!studyEl.checked;
+      if (studyEl.checked) {
+        if (advice) {
+          document.getElementById('coach-title').textContent=`◎ ${coord(advice.move)} が最有力` ;
+          document.getElementById('coach-detail').textContent=advice.explanation;
+        } else {
+          document.getElementById('coach-title').textContent=gameOver?'対局終了':'次の手を確認中';
+          document.getElementById('coach-detail').textContent=gameOver?'「最初から」で別の局面を試してみましょう。':isCpuTurn()?'CPUの手番です。次の自分の番でおすすめを表示します。':'置ける手がありません。自動的にパスします。';
+
+        }
+      }
+    }
+    function setMessage(text) { messageEl.textContent=text; }
+    function finishOrAdvance() {
+      const available=legalMoves(board,turn);
+      const other=legalMoves(board,-turn);
+      if (!available.length&&!other.length) {
+        gameOver=true;
+        const {black,white}=counts(board);
+        setMessage(black===white?`終了！ ${black}対${white}、引き分けです。`:`終了！ ${black}対${white}、${black>white?'黒':'白'}の勝ち！`);
+      } else if (!available.length) {
+        const skipped=turn;turn=-turn;
+        setMessage(`${colorName(skipped)}は置けないのでパス。${colorName(turn)}の番です。`);
+      } else setMessage(isCpuTurn()?'白（CPU）が考えています…':`${colorName(turn)}の番です。光るマスを選んでください。`);
+      render();
+      if (!gameOver&&isCpuTurn()) cpuTimer=setTimeout(cpuMove,300);
+    }
+    function commitMove(move) {
+      clearCpu();
+      history.push({board:copy(board),turn});
+      place(board,move,turn);
+      highlight={placed:move.r*8+move.c,flipped:new Set(move.flips.map(([r,c])=>r*8+c))};
+      turn=-turn;finishOrAdvance();
+    }
+    function humanMove(r,c) {
+      if (gameOver||isCpuTurn())return;
+      const move=legalMoves(board,turn).find(m=>m.r===r&&m.c===c);
+      if (move)commitMove(move);
+    }
+    function cpuMove() {
+      cpuTimer=null;
+      if (gameOver||!isCpuTurn())return;
+      const moves=legalMoves(board,WHITE);
+      if (!moves.length){finishOrAdvance();return;}
+      commitMove(cpuChoice(moves));
+    }
+    function newGame() {
+      clearCpu();
+      board=Array.from({length:8},()=>Array(8).fill(EMPTY));
+      board[3][3]=WHITE;board[3][4]=BLACK;board[4][3]=BLACK;board[4][4]=WHITE;
+      turn=BLACK;gameOver=false;history=[];highlight=null;
+      setMessage('黒の番です。光るマスを選んでください。');render();
+    }
+    function undoMove() {
+      if (!history.length)return;
+      clearCpu();
+      // CPUの返答まで進んでいる場合は原則として2手戻す。
+      const n=modeEl.value==='cpu'&&history.length>=2&&history[history.length-1].turn===WHITE?2:1;
+      let previous;
+      for(let i=0;i<n;i++)previous=history.pop();
+      board=copy(previous.board);turn=previous.turn;gameOver=false;highlight=null;
+      setMessage(`${colorName(turn)}の番です。別の手を試せます。`);render();
+      if (isCpuTurn()) {setMessage('白（CPU）が考えています…');cpuTimer=setTimeout(cpuMove,300);}
+    }
+    modeEl.addEventListener('change',newGame);
+    levelEl.addEventListener('change',()=>{if(!gameOver)setMessage(isCpuTurn()?'CPUの強さを変更しました。考えています…':`CPUレベル${levelEl.value}に変更しました。${colorName(turn)}の番です。`);render();});
+    studyEl.addEventListener('change',render);
+    document.getElementById('new-game').addEventListener('click',newGame);
+    undoEl.addEventListener('click',undoMove);
+    newGame();
+  </script>
+</body>
+</html>
